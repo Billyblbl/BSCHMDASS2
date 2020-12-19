@@ -5,9 +5,6 @@ import android.graphics.*
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import java.sql.Time
-import java.sql.Timestamp
-import java.time.Clock
 import kotlin.random.Random
 
 class MineSweeperBoardView @JvmOverloads constructor(
@@ -54,7 +51,8 @@ class MineSweeperBoardView @JvmOverloads constructor(
     enum class CellState(val drawColor : Int) {
         UNKNOWN(Color.BLACK),
         UNCOVERED(Color.GRAY),
-        EXPLODED(Color.RED)
+        EXPLODED(Color.RED),
+        MARKED(Color.YELLOW)
     }
 
     var cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
@@ -91,6 +89,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
         mines.clear()
         disseminateMines()
         exploded = false
+        onBoardChange?.invoke()
     }
 
     fun resetGame() {
@@ -202,6 +201,8 @@ class MineSweeperBoardView @JvmOverloads constructor(
         val state = cells[cellIndexFromCoords(x, y)]
         when {
             state == CellState.UNKNOWN && mode == Mode.UNCOVER -> uncover(x, y)
+            state == CellState.UNKNOWN && mode == Mode.MARK -> mark(x, y)
+            state == CellState.MARKED && mode == Mode.MARK -> unmark(x, y)
             else -> {}
         }
     }
@@ -214,18 +215,34 @@ class MineSweeperBoardView @JvmOverloads constructor(
         } else {
             cells[cellIndexFromCoords(x, y)] = CellState.UNCOVERED
             if (adjacentMines(x, y) == 0) for (cell in adjacentCellsCoord(x, y)) {
-                if (inBoard(cell.x, cell.y) && at(cell.x, cell.y) == CellState.UNKNOWN) uncover(cell.x, cell.y)
+                if (inBoard(cell.x, cell.y)) when (at(cell.x, cell.y)) {
+                    CellState.UNKNOWN -> uncover(cell.x, cell.y)
+                    CellState.MARKED -> {
+                        unmark(cell.x, cell.y)
+                        uncover(cell.x, cell.y)
+                    }
+                    else -> {}
+                }
             }
         }
+        onBoardChange?.invoke()
         invalidate()
     }
 
     private fun mark(x : Int, y : Int) {
-
+        cells[cellIndexFromCoords(x, y)] = CellState.MARKED
+        markedCells++
+        onBoardChange?.invoke()
+        invalidate()
     }
 
     private fun unmark(x : Int, y : Int) {
-
+        cells[cellIndexFromCoords(x, y)] = CellState.UNKNOWN
+        markedCells--
+        onBoardChange?.invoke()
+        invalidate()
     }
+
+    var onBoardChange : (() -> Unit)? = null
 
 }
