@@ -107,6 +107,26 @@ class MineSweeperBoardView @JvmOverloads constructor(
         y = i / boardWidth
     )
 
+    private fun adjacentCellsCoord(x : Int, y : Int) = arrayOf(
+        Coordinates(x - 1, y - 1),
+        Coordinates(x, y - 1),
+        Coordinates(x + 1, y - 1),
+        Coordinates(x + 1, y),
+        Coordinates(x + 1, y + 1),
+        Coordinates(x, y + 1),
+        Coordinates(x - 1, y + 1),
+        Coordinates(x - 1, y),
+    )
+
+    private fun inBoard(x : Int, y : Int) = x in 0 until boardWidth && y in 0 until boardHeight
+
+    private fun adjacentMines(x : Int, y : Int) : Int {
+        var count = 0
+        val adjacentCellsIdx = adjacentCellsCoord(x, y).map { if (inBoard(it.x, it.y)) cellIndexFromCoords(it.x, it.y) else null }
+        for (idx in adjacentCellsIdx) if (idx != null && mines.find { it == idx } != null) count++
+        return count
+    }
+
     fun at(x : Int, y : Int) = cells[cellIndexFromCoords(x, y)]
 
     private var contentWidth = width - paddingLeft - paddingRight
@@ -149,7 +169,11 @@ class MineSweeperBoardView @JvmOverloads constructor(
                 //Draw cell
                 cellPaint.color = at(j, i).drawColor
                 canvas.drawRect(visCellRect, cellPaint)
-                if (at(j, i) == CellState.EXPLODED) canvas.drawText("M", visCellRect.left * 2, visCellRect.height() - visCellRect.top, textPaint)
+                when (at(j, i)) {
+                    CellState.EXPLODED -> canvas.drawText("M", visCellRect.left * 2, visCellRect.height() - visCellRect.top, textPaint)
+                    CellState.UNCOVERED -> if (adjacentMines(j, i) > 0) canvas.drawText(adjacentMines(j, i).toString(), visCellRect.left * 2, visCellRect.height() - visCellRect.top, textPaint)
+                    else -> {}
+                }
 
                 canvas.restore()
             }
@@ -176,11 +200,15 @@ class MineSweeperBoardView @JvmOverloads constructor(
 
     private fun uncover(x : Int, y : Int) {
         //if mine in (x, y) -> boom, else
-        if (mines.find { it == cellIndexFromCoords(x, y) } != null) for (mine in mines)
+        if (mines.find { it == cellIndexFromCoords(x, y) } != null) for (mine in mines) {
             cells[mine] = CellState.EXPLODED
-        else
+            exploded = true
+        } else {
             cells[cellIndexFromCoords(x, y)] = CellState.UNCOVERED
-        //propagate uncover depending on adjacency
+            if (adjacentMines(x, y) == 0) for (cell in adjacentCellsCoord(x, y)) {
+                if (inBoard(cell.x, cell.y) && at(cell.x, cell.y) == CellState.UNKNOWN) uncover(cell.x, cell.y)
+            }
+        }
         invalidate()
     }
 
