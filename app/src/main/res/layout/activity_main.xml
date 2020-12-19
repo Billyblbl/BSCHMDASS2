@@ -9,21 +9,18 @@
 
     <com.example.bsch_ass2.MineSweeperBoardView
         android:id="@+id/board"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        android:layout_marginTop="100dp"
-        android:layout_marginBottom="100dp"
-        android:layout_marginStart="100dp"
-        android:layout_marginEnd="100dp"
+        android:layout_width="400dp"
+        android:layout_height="400dp"
+        android:layout_marginTop="80dp"
+        android:layout_marginBottom="80dp"
+        app:board_height="10"
+        app:board_width="10"
+        app:cell_margins="1dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:board_height="10"
-        app:board_width="10"
-        app:mine_count="20"
-        app:cell_margins="1dp"
-        />
+        app:mine_count="20" />
 
     <TextView
         android:id="@+id/marked_cells"

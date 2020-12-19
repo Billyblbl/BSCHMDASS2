@@ -52,14 +52,15 @@ class MineSweeperBoardView @JvmOverloads constructor(
         UNKNOWN(Color.BLACK),
         UNCOVERED(Color.GRAY),
         EXPLODED(Color.RED),
-        MARKED(Color.YELLOW)
+        MARKED(Color.YELLOW),
+        CONFIRMED(Color.GREEN)
     }
 
     var cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
 
     data class Coordinates(val x : Int, val y : Int)
 
-    var exploded = false
+    var gameEnded = false
 
     //Indexes of cells containing a mine
     val mines = ArrayList<Int>()
@@ -86,9 +87,10 @@ class MineSweeperBoardView @JvmOverloads constructor(
 
     fun resetBoard() {
         cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
+        markedCells = 0
         mines.clear()
         disseminateMines()
-        exploded = false
+        gameEnded = false
         onBoardChange?.invoke()
     }
 
@@ -190,7 +192,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (event == null || exploded) return super.onTouchEvent(event)
+        if (event == null || gameEnded) return super.onTouchEvent(event)
         val x = (event.x * boardWidth / contentWidth).toInt()
         val y = (event.y * boardHeight / contentHeight).toInt()
         onTouchCellEvent(x, y)
@@ -211,7 +213,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
         //if mine in (x, y) -> boom, else
         if (mines.find { it == cellIndexFromCoords(x, y) } != null) for (mine in mines) {
             cells[mine] = CellState.EXPLODED
-            exploded = true
+            gameEnded = true
         } else {
             cells[cellIndexFromCoords(x, y)] = CellState.UNCOVERED
             if (adjacentMines(x, y) == 0) for (cell in adjacentCellsCoord(x, y)) {
@@ -229,9 +231,27 @@ class MineSweeperBoardView @JvmOverloads constructor(
         invalidate()
     }
 
+    private val complete : Boolean
+        get() {
+            for (mine in mines) {
+                if (cells[mine] != CellState.MARKED) return false
+            }
+            return true
+        }
+
+    private fun win() {
+        for (mine in mines) cells[mine] = CellState.CONFIRMED
+        for (cellIdx in cells.indices) if (cells[cellIdx] != CellState.CONFIRMED)
+            cells[cellIdx] = CellState.UNCOVERED
+        gameEnded = true
+        onBoardChange?.invoke()
+        invalidate()
+    }
+
     private fun mark(x : Int, y : Int) {
         cells[cellIndexFromCoords(x, y)] = CellState.MARKED
         markedCells++
+        if (markedCells == totalMines && complete) win()
         onBoardChange?.invoke()
         invalidate()
     }
