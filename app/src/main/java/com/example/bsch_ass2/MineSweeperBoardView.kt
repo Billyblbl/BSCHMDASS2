@@ -61,6 +61,8 @@ class MineSweeperBoardView @JvmOverloads constructor(
 
     data class Coordinates(val x : Int, val y : Int)
 
+    var exploded = false
+
     //Indexes of cells containing a mine
     val mines = ArrayList<Int>()
 
@@ -88,6 +90,12 @@ class MineSweeperBoardView @JvmOverloads constructor(
         cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
         mines.clear()
         disseminateMines()
+        exploded = false
+    }
+
+    fun resetGame() {
+        resetBoard()
+        updateRenderingData()
     }
 
     private fun disseminateMines() {
@@ -183,7 +191,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (event == null) return super.onTouchEvent(event)
+        if (event == null || exploded) return super.onTouchEvent(event)
         val x = (event.x * boardWidth / contentWidth).toInt()
         val y = (event.y * boardHeight / contentHeight).toInt()
         onTouchCellEvent(x, y)
