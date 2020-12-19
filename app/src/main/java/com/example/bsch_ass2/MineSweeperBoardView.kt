@@ -1,13 +1,14 @@
 package com.example.bsch_ass2
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import java.sql.Time
+import java.sql.Timestamp
+import java.time.Clock
+import kotlin.random.Random
 
 class MineSweeperBoardView @JvmOverloads constructor(
     ctx: Context,
@@ -21,6 +22,12 @@ class MineSweeperBoardView @JvmOverloads constructor(
     }
 
     var totalMines = 0
+        set(value) {
+            field = value
+            resetBoard()
+            updateRenderingData()
+        }
+
     var markedCells = 0
     var mode = Mode.UNCOVER
 
@@ -46,16 +53,25 @@ class MineSweeperBoardView @JvmOverloads constructor(
 
     enum class CellState(val drawColor : Int) {
         UNKNOWN(Color.BLACK),
-        UNCOVERED(Color.GRAY)
+        UNCOVERED(Color.GRAY),
+        EXPLODED(Color.RED)
     }
 
     var cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
+
+    data class Coordinates(val x : Int, val y : Int)
+
+    //Indexes of cells containing a mine
+    val mines = ArrayList<Int>()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         updateRenderingData()
     }
 
+    private val textPaint = Paint()
+
+    private var visCellRect = RectF()
     init {
         context.theme.obtainStyledAttributes(attrs, R.styleable.MineSweeperBoardView, style, 0).apply { try {
             boardWidth = getInteger(R.styleable.MineSweeperBoardView_board_width, 10)
@@ -63,22 +79,39 @@ class MineSweeperBoardView @JvmOverloads constructor(
             totalMines = getInteger(R.styleable.MineSweeperBoardView_mine_count, 20)
             cellMargins = getDimension(R.styleable.MineSweeperBoardView_cell_margins, 20.0f)
         } finally { recycle() }}
+        textPaint.color = Color.BLACK
     }
 
     fun toggleMode() { mode = if (mode == Mode.UNCOVER) Mode.MARK else Mode.UNCOVER }
 
     fun resetBoard() {
         cells = Array(boardWidth * boardHeight) { CellState.UNKNOWN }
+        mines.clear()
+        disseminateMines()
+    }
+
+    private fun disseminateMines() {
+        val rdm = Random(System.currentTimeMillis())
+        val possibleIdx = cells.indices.toMutableList()
+
+        for (i in 0 until totalMines) {
+            val idxIdx = rdm.nextInt(possibleIdx.size)
+            mines.add(possibleIdx[idxIdx])
+            possibleIdx.removeAt(idxIdx)
+        }
     }
 
     private fun cellIndexFromCoords(x : Int, y : Int) = y * boardWidth + x
+    private fun cellCoordsFromIndex(i : Int) = Coordinates(
+        x = i % boardWidth,
+        y = i / boardWidth
+    )
 
     fun at(x : Int, y : Int) = cells[cellIndexFromCoords(x, y)]
 
     private var contentWidth = width - paddingLeft - paddingRight
     private var contentHeight = height - paddingTop - paddingBottom
     private var fullCellRect = Rect()
-    private var visCellRect = Rect()
     fun updateRenderingData() {
         contentWidth = width - paddingLeft - paddingRight
         contentHeight = height - paddingTop - paddingBottom
@@ -86,12 +119,13 @@ class MineSweeperBoardView @JvmOverloads constructor(
         fullCellRect =  if (boardWidth == 0 || boardHeight == 0 ) Rect(0, 0, 0, 0)
                         else Rect(0, 0,contentWidth / boardWidth,contentHeight / boardHeight)
 
-        visCellRect = Rect(
-            cellMargins.toInt(),
-            cellMargins.toInt(),
-            (fullCellRect.width() - cellMargins).toInt(),
-            (fullCellRect.height() - cellMargins).toInt()
+        visCellRect = RectF(
+            cellMargins,
+            cellMargins,
+            (fullCellRect.width() - cellMargins),
+            (fullCellRect.height() - cellMargins)
         )
+        textPaint.textSize = visCellRect.width()
         invalidate()
     }
 
@@ -102,7 +136,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
         canvas.drawColor(Color.WHITE)
 
         //Put this call at the right place later, this allocates Rects every time
-        updateRenderingData()
+//        updateRenderingData()
 
         canvas.save()
         canvas.translate(cellMargins, cellMargins)
@@ -115,6 +149,7 @@ class MineSweeperBoardView @JvmOverloads constructor(
                 //Draw cell
                 cellPaint.color = at(j, i).drawColor
                 canvas.drawRect(visCellRect, cellPaint)
+                if (at(j, i) == CellState.EXPLODED) canvas.drawText("M", visCellRect.left * 2, visCellRect.height() - visCellRect.top, textPaint)
 
                 canvas.restore()
             }
@@ -141,7 +176,10 @@ class MineSweeperBoardView @JvmOverloads constructor(
 
     private fun uncover(x : Int, y : Int) {
         //if mine in (x, y) -> boom, else
-        cells[cellIndexFromCoords(x, y)] = CellState.UNCOVERED
+        if (mines.find { it == cellIndexFromCoords(x, y) } != null) for (mine in mines)
+            cells[mine] = CellState.EXPLODED
+        else
+            cells[cellIndexFromCoords(x, y)] = CellState.UNCOVERED
         //propagate uncover depending on adjacency
         invalidate()
     }
