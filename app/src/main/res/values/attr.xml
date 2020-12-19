@@ -4,5 +4,6 @@
         <attr name="board_width" format="integer"/>
         <attr name="board_height" format="integer"/>
         <attr name="mine_count" format="integer"/>
+        <attr name="cell_margins" format="dimension"/>
     </declare-styleable>
 </resources>
